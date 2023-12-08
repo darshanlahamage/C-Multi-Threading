@@ -1,79 +1,15 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <thread>
-#include <mutex>
 #include <algorithm>
 #include <numeric>
-#include <future>
+#include <windows.h>
+#include <atomic>
+#include <ctime>
 
-class ThreadPool {
-public:
-    explicit ThreadPool(size_t size) : stop(false) {
-        for (size_t i = 0; i < size; ++i) {
-            workers.emplace_back([this] {
-                while (true) {
-                    std::function<void()> task;
-                    {
-                        std::unique_lock<std::mutex> lock(queueMutex);
-                        condition.wait(lock, [this] { return stop || !tasks.empty(); });
-                        if (stop && tasks.empty()) {
-                            return;
-                        }
-                        task = std::move(tasks.front());
-                        tasks.pop();
-                    }
-                    task();
-                }
-            });
-        }
-    }
+std::atomic<int> sum(0);
 
-    ~ThreadPool() {
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            stop = true;
-        }
-        condition.notify_all();
-        for (std::thread &worker : workers) {
-            worker.join();
-        }
-    }
-
-    template<class F, class... Args>
-    auto enqueue(F &&f, Args &&... args)
-    -> std::future<typename std::result_of<F(Args...)>::type> {
-        using return_type = typename std::result_of<F(Args...)>::type;
-
-        auto task = std::make_shared<std::packaged_task<return_type()>>(
-                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-        );
-
-        std::future<return_type> res = task->get_future();
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            if (stop) {
-                throw std::runtime_error("enqueue on stopped ThreadPool");
-            }
-            tasks.emplace([task]() { (*task)(); });
-        }
-        condition.notify_one();
-        return res;
-    }
-
-private:
-    std::vector<std::thread> workers;
-    std::queue<std::function<void()>> tasks;
-
-    std::mutex queueMutex;
-    std::condition_variable condition;
-    bool stop;
-};
-
-std::mutex sumMutex;
-int sum = 0;
-
-void processDataFromFile(int threadId, const std::string &filename, int iterations) {
+void processDataFromFile(int threadId, const std::string& filename, int iterations) {
     try {
         std::ifstream inputFile(filename);
         if (!inputFile.is_open()) {
@@ -81,44 +17,32 @@ void processDataFromFile(int threadId, const std::string &filename, int iteratio
         }
 
         std::vector<int> data(iterations);
-        for (int &value : data) {
+        for (int& value : data) {
             inputFile >> value;
         }
 
-        // Asynchronous I/O and parallel sum calculation
-        auto future = std::async(std::launch::async, [&data]() {
-            return std::accumulate(data.begin(), data.end(), 0);
-        });
+        // Simulate processing without threading
+        int result = std::accumulate(data.begin(), data.end(), 0);
 
-        // Wait for the asynchronous operation to complete and update the sum
-        {
-            std::lock_guard<std::mutex> lock(sumMutex);
-            sum += future.get();
-        }
+        // Use atomic operation to update the shared sum
+        InterlockedExchangeAdd(reinterpret_cast<volatile LONG*>(&sum), result);
 
-        std::cout << "Thread " << threadId << " finished processing." << std::endl;
-    } catch (const std::ifstream::failure &e) {
+        std::cout << "Thread " << threadId << " finished processing file: " << filename << std::endl;
+    } catch (const std::ifstream::failure& e) {
         std::cerr << "Thread " << threadId << " encountered an error: " << e.what() << std::endl;
     }
 }
 
 int main() {
     // Set seed for random number generation
-    std::srand(std::time(0));
+    std::srand(static_cast<unsigned int>(time(nullptr)));
 
-    // Number of iterations for each thread
+    // Number of iterations for each file
     int iterations = 5;
 
-    // Create a thread pool with 2 threads
-    ThreadPool threadPool(2);
-
-    // Enqueue tasks to the thread pool
-    auto future1 = threadPool.enqueue(processDataFromFile, 1, "data/source1.txt", iterations);
-    auto future2 = threadPool.enqueue(processDataFromFile, 2, "data/source2.txt", iterations);
-
-    // Wait for tasks to complete and retrieve results
-    int result1 = future1.get();
-    int result2 = future2.get();
+    // Process files sequentially
+    processDataFromFile(1, "data/source_1.txt", iterations);
+    processDataFromFile(2, "data/source_2.txt", iterations);
 
     // Display the final sum
     std::cout << "Final Sum: " << sum << std::endl;
