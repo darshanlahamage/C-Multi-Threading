@@ -1,13 +1,14 @@
-# Assignment Title: Multithreaded C/C++ Application 
+# Multithreaded C/C++ Application
+
 ## Introduction
 
 This C++ application is designed to efficiently process data concurrently using multiple threads. The key features of the application include:
 
-- Multithreading: The application utilizes at least two threads to process data in parallel.
-- Data Processing: Simulates data input from multiple sources (files) and processes this data concurrently.
-- Synchronization: Uses atomic operations for synchronization to ensure data integrity and avoid race conditions.
-- Error Handling: Implements proper error handling and reporting mechanisms.
-- Performance: Optimizes code to achieve efficient multithreading and processing.
+- **Multithreading:** The application utilizes at least two threads to process data in parallel.
+- **Data Processing:** Simulates data input from multiple sources (files) and processes this data concurrently.
+- **Synchronization:** Uses both atomic operations and standard mutexes for synchronization to ensure data integrity and avoid race conditions.
+- **Error Handling:** Implements proper error handling and reporting mechanisms.
+- **Performance:** Optimizes code to achieve efficient multithreading and processing.
 
 ## Instructions
 
@@ -44,7 +45,7 @@ This C++ application is designed to efficiently process data concurrently using 
 
 ### Threading Mechanism
 
-The application uses the Windows-specific `InterlockedExchangeAdd` function for atomic operations. This choice is made to provide a simple form of synchronization without relying on standard mutexes due to environment limitations.
+The application uses both atomic operations (`std::atomic`) and standard mutex (`std::mutex`) for synchronization. Atomic operations are used for the shared `sum` variable, while the mutex is employed to protect the critical section during sum updates.
 
 ### Data Processing
 
@@ -52,7 +53,7 @@ Data is read from two files (`data/source_1.txt` and `data/source_2.txt`). The p
 
 ### Synchronization
 
-Synchronization is achieved using atomic operations on the shared `sum` variable. The `InterlockedExchangeAdd` function ensures that updates to the shared sum are atomic, preventing race conditions.
+Synchronization is achieved using a combination of atomic operations and standard mutexes. Atomic operations ensure atomic updates to the shared `sum` variable, while the standard mutex (`std::mutex`) protects the critical section during sum updates in the `processDataFromFile` function.
 
 ### Error Handling
 
@@ -60,4 +61,4 @@ Error handling is implemented for file opening failures using the `std::ifstream
 
 ### Performance Optimization
 
-The use of atomic operations helps achieve basic synchronization without the need for more complex locking mechanisms. However, it's essential to note that this approach may not be as efficient as using standard mutexes, especially in more complex scenarios.
+The use of atomic operations and standard mutexes helps achieve synchronization, ensuring data integrity and preventing race conditions in a multithreaded environment.
