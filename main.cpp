@@ -3,11 +3,12 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
-#include <windows.h>
+#include <mutex>  // Include the <mutex> header first
 #include <atomic>
 #include <ctime>
 
 std::atomic<int> sum(0);
+std::mutex sumMutex;  // Declare the mutex
 
 void processDataFromFile(int threadId, const std::string& filename, int iterations) {
     try {
@@ -24,8 +25,9 @@ void processDataFromFile(int threadId, const std::string& filename, int iteratio
         // Simulate processing without threading
         int result = std::accumulate(data.begin(), data.end(), 0);
 
-        // Use atomic operation to update the shared sum
-        InterlockedExchangeAdd(reinterpret_cast<volatile LONG*>(&sum), result);
+        // Use mutex to protect shared sum
+        std::lock_guard<std::mutex> lock(sumMutex);
+        sum += result;
 
         std::cout << "Thread " << threadId << " finished processing file: " << filename << std::endl;
     } catch (const std::ifstream::failure& e) {
